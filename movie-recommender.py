@@ -50,31 +50,26 @@ def prepare_vectors(movies_data):
 # ==================== FUNGSI POSTER TMDB ====================
 @st.cache_data(show_spinner=False)
 def fetch_movie_poster(movie_title):
-    """
-    Mencari URL poster film dari TMDB API berdasarkan judul.
-    API Key diambil dari Streamlit Secrets.
-    """
-    # Ambil API Key dari Streamlit Secrets
     try:
-        API_KEY = st.secrets["f7abbd106ffe7a0b21d4f884ebae6318"]
-    except:
-        # Jika tidak ada API Key, return None (poster tidak tampil)
-        return None
-    
-    # Bersihkan judul untuk pencarian yang lebih baik
-    clean_title_for_search = movie_title.replace(" ", "+")
-    search_url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={clean_title_for_search}"
-    
-    try:
-        response = requests.get(search_url)
-        response.raise_for_status()
+        API_KEY = st.secrets.get("TMDB_API_KEY", "")
+        if not API_KEY:
+            return None
+        
+        import urllib.parse
+        clean_title_for_search = urllib.parse.quote(movie_title)
+        search_url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={clean_title_for_search}"
+        
+        response = requests.get(search_url, timeout=10)
+        
+        if response.status_code == 401:
+            return None
+        
         data = response.json()
         
         if data['results']:
             poster_path = data['results'][0].get('poster_path')
             if poster_path:
-                poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
-                return poster_url
+                return f"https://image.tmdb.org/t/p/w500{poster_path}"
         return None
     except Exception:
         return None
@@ -109,21 +104,38 @@ def search_similar_genres(genres):
     return movies_data.iloc[indices][::-1]
 
 def scores_calculator(movie_id):
+    # Cek apakah movie_id ada di combined_data
+    if movie_id not in combined_data['movieId'].values:
+        return pd.DataFrame(columns=['similar', 'all', 'score'])
+    
     similar_users = combined_data.loc[
         (combined_data['movieId'] == movie_id) & (combined_data['rating'] >= 4), 'userId'
     ].unique()
+    
+    if len(similar_users) == 0:
+        return pd.DataFrame(columns=['similar', 'all', 'score'])
+    
     similar_user_recs = combined_data.loc[
         (combined_data['userId'].isin(similar_users)) & (combined_data['rating'] >= 4), 'movieId'
     ].value_counts(normalize=True)
+    
     all_user_recs = combined_data.loc[
         combined_data['movieId'].isin(similar_user_recs.index) & (combined_data['rating'] >= 4)
     ]['movieId'].value_counts(normalize=True)
-    selected_genres = combined_data.loc[combined_data['movieId'] == movie_id, 'genres'].iloc[0]
+    
+    # Cek apakah movie_id ada di combined_data untuk mengambil genres
+    movie_data = combined_data.loc[combined_data['movieId'] == movie_id]
+    if len(movie_data) == 0:
+        return pd.DataFrame(columns=['similar', 'all', 'score'])
+    
+    selected_genres = movie_data['genres'].iloc[0]
     if isinstance(selected_genres, list):
         selected_genres = " ".join(selected_genres)
+    
     similar_genre_ids = search_similar_genres(selected_genres)['movieId']
     similar_user_recs.loc[similar_user_recs.index.isin(similar_genre_ids)] *= 1.5
     all_user_recs.loc[all_user_recs.index.isin(similar_genre_ids)] *= 0.9
+    
     scores = pd.DataFrame({
         'similar': similar_user_recs,
         'all': all_user_recs
@@ -133,8 +145,16 @@ def scores_calculator(movie_id):
 
 def recommendation_results(user_input, title_idx=0, genre_filter=None):
     title_candidates = search_by_title(user_input)
+    
+    if len(title_candidates) == 0:
+        return pd.DataFrame(columns=['title', 'score', 'genres'])
+    
     movie_id = title_candidates.iloc[title_idx]['movieId']
     scores = scores_calculator(movie_id)
+    
+    if len(scores) == 0:
+        return pd.DataFrame(columns=['title', 'score', 'genres'])
+    
     results = scores.head(30).merge(movies_data, left_index=True, right_on='movieId')[['movieId', 'title', 'score', 'genres']]
     
     if genre_filter and len(genre_filter) > 0:
@@ -153,11 +173,6 @@ if page == "🏠 Home":
     st.markdown("""
     Welcome to the **Movie Recommendation System**!  
     This app uses **Collaborative Filtering** and **Content-Based Filtering** to suggest movies you might like.
-    
-    ### Features:
-    - 📊 **Data Analysis**: Explore movie genres, ratings distribution, and top movies
-    - 🎯 **Recommendation**: Get personalized movie recommendations based on your input
-    - 🎭 **Browse by Genre**: Filter and explore movies by genre
     """)
     
     col1, col2, col3 = st.columns(3)
@@ -193,14 +208,6 @@ elif page == "📊 Data Analysis":
         ax.set_xlabel("Rating")
         ax.set_ylabel("Frekuensi")
         st.pyplot(fig)
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Average Rating", f"{ratings_data['rating'].mean():.2f}")
-        with col2:
-            st.metric("Most Common Rating", f"{ratings_data['rating'].mode()[0]}")
-        with col3:
-            st.metric("Total Ratings", f"{len(ratings_data):,}")
 
 # ==================== RECOMMENDATION PAGE ====================
 elif page == "🎯 Recommendation":
@@ -211,8 +218,7 @@ elif page == "🎯 Recommendation":
         selected_genres_filter = st.multiselect(
             "Filter recommendations by genre:",
             options=all_genres,
-            default=[],
-            help="Select genres to filter recommended movies"
+            default=[]
         )
     
     col1, col2 = st.columns([3, 1])
@@ -226,39 +232,56 @@ elif page == "🎯 Recommendation":
     if search_btn or user_input:
         st.subheader("🔎 Did you mean?")
         candidates = search_by_title(user_input)
-        title_options = candidates['title'].tolist()
-        selected_title = st.selectbox("Select the correct movie:", title_options)
         
-        if st.button("🎬 Get Recommendations", type="primary", use_container_width=True):
-            idx = title_options.index(selected_title)
+        if len(candidates) == 0:
+            st.warning(f"No movie found with title '{user_input}'. Please try another title.")
+        else:
+            title_options = candidates['title'].tolist()
+            selected_title = st.selectbox("Select the correct movie:", title_options)
             
-            with st.spinner("Finding recommendations for you..."):
-                recommendations = recommendation_results(user_input, idx, selected_genres_filter)
-            
-            if len(recommendations) == 0:
-                st.warning("No movies found with the selected genre filters. Try removing some filters.")
-            else:
-                st.subheader("🎥 Recommended Movies for You")
+            if st.button("🎬 Get Recommendations", type="primary", use_container_width=True):
+                idx = title_options.index(selected_title)
                 
-                if selected_genres_filter:
-                    st.info(f"📌 Filtering by genres: {', '.join(selected_genres_filter)}")
+                with st.spinner("Finding recommendations for you..."):
+                    recommendations = recommendation_results(user_input, idx, selected_genres_filter)
                 
-                for _, row in recommendations.iterrows():
-                    col_img, col_text = st.columns([1, 3])
+                if len(recommendations) == 0:
+                    st.warning("No recommendations found. Try a different movie or remove genre filters.")
+                else:
+                    st.subheader("🎥 Recommended Movies for You")
                     
-                    with col_img:
-                        poster_url = fetch_movie_poster(row['title'])
-                        if poster_url:
-                            st.image(poster_url, use_container_width=True)
-                        else:
-                            st.image("https://via.placeholder.com/200x300?text=No+Poster", use_container_width=True)
+                    if selected_genres_filter:
+                        st.info(f"📌 Filtering by genres: {', '.join(selected_genres_filter)}")
                     
-                    with col_text:
-                        st.markdown(f"**🎬 {row['title']}**")
-                        st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
-                        st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
-                    
-                    st.divider()
+                    for _, row in recommendations.iterrows():
+                        col_img, col_text = st.columns([1, 3])
+                        
+                        with col_img:
+                            poster_url = fetch_movie_poster(row['title'])
+                            if poster_url:
+                                st.image(poster_url, use_container_width=True)
+                            else:
+                                st.markdown(
+                                    f"""
+                                    <div style="background-color: #f0f2f6; 
+                                                height: 200px; 
+                                                display: flex; 
+                                                align-items: center; 
+                                                justify-content: center; 
+                                                border-radius: 10px;
+                                                text-align: center;">
+                                        <span style="color: #666;">🎬<br>No Poster</span>
+                                    </div>
+                                    """, 
+                                    unsafe_allow_html=True
+                                )
+                        
+                        with col_text:
+                            st.markdown(f"**🎬 {row['title']}**")
+                            st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
+                            st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
+                        
+                        st.divider()
 
 # ==================== BROWSE BY GENRE PAGE ====================
 elif page == "🎭 Browse by Genre":
@@ -269,8 +292,7 @@ elif page == "🎭 Browse by Genre":
         browse_genres = st.multiselect(
             "Select one or more genres:",
             options=all_genres,
-            default=["Comedy"] if "Comedy" in all_genres else [],
-            help="Select genres to filter movies"
+            default=["Comedy"] if "Comedy" in all_genres else []
         )
         
         st.markdown("### ⚙️ Display Options")
@@ -291,7 +313,7 @@ elif page == "🎭 Browse by Genre":
         if sort_by == "Rating (Highest)":
             filtered_movies = filtered_movies.sort_values('avg_rating', ascending=False)
         elif sort_by == "Rating (Lowest)":
-            filtered_movies =filtered_movies.sort_values('avg_rating', ascending=True)
+            filtered_movies = filtered_movies.sort_values('avg_rating', ascending=True)
         elif sort_by == "Title (A-Z)":
             filtered_movies = filtered_movies.sort_values('title', ascending=True)
         elif sort_by == "Title (Z-A)":
