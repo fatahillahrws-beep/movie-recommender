@@ -25,7 +25,8 @@ st.set_page_config(
 # Load data (cache agar tidak reload setiap kali)
 @st.cache_data
 def load_movies_data():
-    df1 = pd.read_csv("movies.csv", sep=";")
+    # Ganti baris ini
+    df1 = pd.read_csv("movies.csv")  # Hapus sep=";"
     df1['genres'] = df1['genres'].fillna("")
     df1['genres'] = df1['genres'].str.split('|')
     df1['title'] = df1['title'].apply(lambda x: re.sub("[^a-zA-Z0-9 ]", "", x))
@@ -34,7 +35,8 @@ def load_movies_data():
 
 @st.cache_data
 def load_ratings_data():
-    df2 = pd.read_csv("ratings.csv", sep=";")
+    # Ganti baris ini
+    df2 = pd.read_csv("ratings.csv")  # Hapus sep=";"
     return df2.drop(['timestamp'], axis=1)
 
 @st.cache_data
