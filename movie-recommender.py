@@ -220,13 +220,11 @@ elif page == "🎯 Recommendation":
             else:
                 st.subheader("🎥 Recommended Movies for You")
                 
-                # Tampilkan filter yang aktif
                 if selected_genres_filter:
                     st.info(f"📌 Filtering by genres: {', '.join(selected_genres_filter)}")
                 
-                # LOOP untuk menampilkan setiap rekomendasi
+                # Loop untuk setiap rekomendasi
                 for _, row in recommendations.iterrows():
-                    # Tampilkan poster dan teks berdampingan
                     col_img, col_text = st.columns([1, 3])
                     
                     with col_img:
@@ -234,7 +232,6 @@ elif page == "🎯 Recommendation":
                         if poster_url:
                             st.image(poster_url, use_container_width=True)
                         else:
-                            # Placeholder jika poster tidak ditemukan
                             st.image("https://via.placeholder.com/200x300?text=No+Poster", use_container_width=True)
                     
                     with col_text:
@@ -242,7 +239,7 @@ elif page == "🎯 Recommendation":
                         st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
                         st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
                     
-                    st.divider()  # Pembatas antar film
+                    st.divider()
 
 # ==================== RECOMMENDATION PAGE ====================
 elif page == "🎯 Recommendation":
