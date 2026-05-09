@@ -290,7 +290,7 @@ elif page == "🎯 Recommendation":
                     poster_url = fetch_movie_poster(row['title'])
                     if poster_url:
                         st.image(poster_url, use_container_width=True)
-                else:
+                    else:
                         # Placeholder jika poster tidak ditemukan
                         st.image("https://via.placeholder.com/200x300?text=No+Poster", use_container_width=True)
         
