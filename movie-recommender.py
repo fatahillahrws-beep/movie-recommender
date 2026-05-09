@@ -290,10 +290,10 @@ elif page == "🎯 Recommendation":
                         # Placeholder jika poster tidak ditemukan
                         st.image("https://via.placeholder.com/200x300?text=No+Poster", use_container_width=True)
         
-with col_text:
-    st.markdown(f"**🎬 {row['title']}**")
-    st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
-    st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
+                with col_text:
+                    st.markdown(f"**🎬 {row['title']}**")
+                    st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
+                    st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
 
 # ==================== BROWSE BY GENRE PAGE ====================
 elif page == "🎭 Browse by Genre":
