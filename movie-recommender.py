@@ -40,11 +40,6 @@ def load_ratings_data():
     return df2.drop(['timestamp'], axis=1)
 
 @st.cache_data
-def load_ratings_data():
-    df2 = pd.read_csv("ratings.csv", sep=";")
-    return df2.drop(['timestamp'], axis=1)
-
-@st.cache_data
 def prepare_vectors(movies_data):
     vectorizer_title = TfidfVectorizer(ngram_range=(1,2))
     tfidf_title = vectorizer_title.fit_transform(movies_data['title'])
