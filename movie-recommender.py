@@ -216,21 +216,33 @@ elif page == "🎯 Recommendation":
                 recommendations = recommendation_results(user_input, idx, selected_genres_filter)
             
             if len(recommendations) == 0:
-                st.warning("No movies found with the selected genre filters.")
+                st.warning("No movies found with the selected genre filters. Try removing some filters.")
             else:
                 st.subheader("🎥 Recommended Movies for You")
+                
+                # Tampilkan filter yang aktif
                 if selected_genres_filter:
                     st.info(f"📌 Filtering by genres: {', '.join(selected_genres_filter)}")
                 
-                for i, (_, row) in enumerate(recommendations.iterrows()):
-                    with st.container(border=True):
-                        # Tampilkan poster jika ada
+                # LOOP untuk menampilkan setiap rekomendasi
+                for _, row in recommendations.iterrows():
+                    # Tampilkan poster dan teks berdampingan
+                    col_img, col_text = st.columns([1, 3])
+                    
+                    with col_img:
                         poster_url = fetch_movie_poster(row['title'])
                         if poster_url:
-                            st.image(poster_url, width=150)
+                            st.image(poster_url, use_container_width=True)
+                        else:
+                            # Placeholder jika poster tidak ditemukan
+                            st.image("https://via.placeholder.com/200x300?text=No+Poster", use_container_width=True)
+                    
+                    with col_text:
                         st.markdown(f"**🎬 {row['title']}**")
                         st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
                         st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
+                    
+                    st.divider()  # Pembatas antar film
 
 # ==================== RECOMMENDATION PAGE ====================
 elif page == "🎯 Recommendation":
