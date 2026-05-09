@@ -49,35 +49,28 @@ def prepare_vectors(movies_data):
     tfidf_genres = vectorizer_genres.fit_transform(movies_data['genres_text'])
     return vectorizer_title, tfidf_title, vectorizer_genres, tfidf_genres
 
+# Fungsi untuk mengambil poster dari TMDB
 @st.cache_data(show_spinner=False)
 def fetch_movie_poster(movie_title):
     """
     Mencari URL poster film dari TMDB API berdasarkan judul.
     """
-    # Ganti 'YOUR_TMDB_API_KEY' dengan API Key asli Anda
-    API_KEY = "f7abbd106ffe7a0b21d4f884ebae6318"
-    
-    # Base URL untuk mencari film
-    search_url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_title}"
-    
     try:
-        response = requests.get(search_url)
-        response.raise_for_status()
-        data = response.json()
-        
-        # Jika ada hasil pencarian
-        if data['results']:
-            # Ambil hasil pertama (paling relevan)
-            movie_id = data['results'][0]['id']
-            poster_path = data['results'][0].get('poster_path')
+        # Coba ambil dari secrets jika ada, jika tidak pakai placeholder
+        if "TMDB_API_KEY" in st.secrets:
+            API_KEY = st.secrets["f7abbd106ffe7a0b21d4f884ebae6318"]
+            search_url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_title}"
+            response = requests.get(search_url)
+            response.raise_for_status()
+            data = response.json()
             
-            # Jika ada poster, buat URL lengkapnya
-            if poster_path:
-                poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
-                return poster_url
+            if data['results']:
+                poster_path = data['results'][0].get('poster_path')
+                if poster_path:
+                    poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+                    return poster_url
         return None
-    except Exception as e:
-        # Jangan ganggu user dengan error API; return None saja
+    except Exception:
         return None
 
 # Load data
@@ -138,23 +131,15 @@ def recommendation_results(user_input, title_idx=0, genre_filter=None):
     scores = scores_calculator(movie_id)
     results = scores.head(30).merge(movies_data, left_index=True, right_on='movieId')[['movieId', 'title', 'score', 'genres']]
     
-    # Filter berdasarkan genre
     if genre_filter and len(genre_filter) > 0:
         results = results[results['genres'].apply(lambda x: any(g in x for g in genre_filter))]
     
     return results.head(10)
 
-# Fungsi untuk mendapatkan film berdasarkan genre
-def get_movies_by_genre(genres, limit=20):
-    filtered = movies_data.copy()
-    for genre in genres:
-        filtered = filtered[filtered['genres'].apply(lambda x: genre in x)]
-    return filtered.head(limit)
-
 # ==================== SIDEBAR ====================
 st.sidebar.title("🎬 Movie Recommender")
 st.sidebar.markdown("---")
-page = st.sidebar.radio("Navigate to:", ["🏠 Home", "📊 Data Analysis", "🎯 Recommendation", "🎭 Browse by Genre"])
+page = st.sidebar.radio("Navigate to:", ["🏠 Home", "📊 Data Analysis", "🎯 Recommendation"])
 
 # ==================== HOME PAGE ====================
 if page == "🏠 Home":
@@ -162,11 +147,6 @@ if page == "🏠 Home":
     st.markdown("""
     Welcome to the **Movie Recommendation System**!  
     This app uses **Collaborative Filtering** and **Content-Based Filtering** to suggest movies you might like.
-    
-    ### Features:
-    - 📊 **Data Analysis**: Explore movie genres, ratings distribution, and top movies.
-    - 🎯 **Recommendation**: Get personalized movie recommendations based on your input.
-    - 🎭 **Browse by Genre**: Filter and explore movies by genre.
     """)
     
     col1, col2, col3 = st.columns(3)
@@ -181,27 +161,11 @@ if page == "🏠 Home":
 elif page == "📊 Data Analysis":
     st.title("📊 Movie Data Analysis")
     
-    # Sidebar filter untuk analisis
-    with st.sidebar:
-        st.markdown("### 🔍 Filter Analysis")
-        selected_analysis_genres = st.multiselect(
-            "Filter by Genre (Optional):",
-            options=all_genres,
-            default=[]
-        )
-    
-    tab1, tab2, tab3 = st.tabs(["🎭 Genre Distribution", "⭐ Rating Distribution", "🏆 Top Movies"])
+    tab1, tab2 = st.tabs(["🎭 Genre Distribution", "⭐ Rating Distribution"])
     
     with tab1:
         st.subheader("Number of Movies per Genre")
-        
-        # Data genre counts
         genre_counts = pd.Series([genre for genres_list in movies_data['genres'] for genre in genres_list]).value_counts()
-        
-        # Filter jika ada genre yang dipilih
-        if selected_analysis_genres:
-            genre_counts = genre_counts[genre_counts.index.isin(selected_analysis_genres)]
-        
         fig, ax = plt.subplots(figsize=(12, 6))
         genre_counts.plot(kind='bar', color='skyblue', ax=ax)
         ax.set_title("Jumlah Film per Genre", fontsize=16)
@@ -218,24 +182,55 @@ elif page == "📊 Data Analysis":
         ax.set_xlabel("Rating")
         ax.set_ylabel("Frekuensi")
         st.pyplot(fig)
-        
-        # Statistik rating
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.metric("Average Rating", f"{ratings_data['rating'].mean():.2f}")
-        with col2:
-            st.metric("Most Common Rating", f"{ratings_data['rating'].mode()[0]}")
-        with col3:
-            st.metric("Total Ratings", f"{len(ratings_data):,}")
+
+# ==================== RECOMMENDATION PAGE ====================
+elif page == "🎯 Recommendation":
+    st.title("🎯 Get Movie Recommendations")
     
-    with tab3:
-        st.subheader("Top 10 Movies by Average Rating")
-        avg_ratings = combined_data.groupby('title')['rating'].mean().sort_values(ascending=False).head(10)
-        st.dataframe(avg_ratings.reset_index().rename(columns={'title': 'Movie', 'rating': 'Avg Rating'}), use_container_width=True)
+    with st.sidebar:
+        st.markdown("### 🎭 Filter Recommendations")
+        selected_genres_filter = st.multiselect(
+            "Filter recommendations by genre:",
+            options=all_genres,
+            default=[]
+        )
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        user_input = st.text_input("Enter a movie title:", "Jumanji")
+    with col2:
+        st.write("")
+        st.write("")
+        search_btn = st.button("🔍 Search", use_container_width=True)
+    
+    if search_btn or user_input:
+        st.subheader("🔎 Did you mean?")
+        candidates = search_by_title(user_input)
+        title_options = candidates['title'].tolist()
+        selected_title = st.selectbox("Select the correct movie:", title_options)
         
-        st.subheader("Top 10 Most Rated Movies")
-        most_rated = combined_data.groupby('title')['rating'].count().sort_values(ascending=False).head(10)
-        st.dataframe(most_rated.reset_index().rename(columns={'title': 'Movie', 'rating': 'Rating Count'}), use_container_width=True)
+        if st.button("🎬 Get Recommendations", type="primary", use_container_width=True):
+            idx = title_options.index(selected_title)
+            
+            with st.spinner("Finding recommendations for you..."):
+                recommendations = recommendation_results(user_input, idx, selected_genres_filter)
+            
+            if len(recommendations) == 0:
+                st.warning("No movies found with the selected genre filters.")
+            else:
+                st.subheader("🎥 Recommended Movies for You")
+                if selected_genres_filter:
+                    st.info(f"📌 Filtering by genres: {', '.join(selected_genres_filter)}")
+                
+                for i, (_, row) in enumerate(recommendations.iterrows()):
+                    with st.container(border=True):
+                        # Tampilkan poster jika ada
+                        poster_url = fetch_movie_poster(row['title'])
+                        if poster_url:
+                            st.image(poster_url, width=150)
+                        st.markdown(f"**🎬 {row['title']}**")
+                        st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
+                        st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
 
 # ==================== RECOMMENDATION PAGE ====================
 elif page == "🎯 Recommendation":
