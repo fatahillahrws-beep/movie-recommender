@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import requests
 
 # Konfigurasi halaman
 st.set_page_config(
@@ -47,6 +48,37 @@ def prepare_vectors(movies_data):
     vectorizer_genres = TfidfVectorizer(ngram_range=(1,2))
     tfidf_genres = vectorizer_genres.fit_transform(movies_data['genres_text'])
     return vectorizer_title, tfidf_title, vectorizer_genres, tfidf_genres
+
+@st.cache_data(show_spinner=False)
+def fetch_movie_poster(movie_title):
+    """
+    Mencari URL poster film dari TMDB API berdasarkan judul.
+    """
+    # Ganti 'YOUR_TMDB_API_KEY' dengan API Key asli Anda
+    API_KEY = "f7abbd106ffe7a0b21d4f884ebae6318"
+    
+    # Base URL untuk mencari film
+    search_url = f"https://api.themoviedb.org/3/search/movie?api_key={API_KEY}&query={movie_title}"
+    
+    try:
+        response = requests.get(search_url)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Jika ada hasil pencarian
+        if data['results']:
+            # Ambil hasil pertama (paling relevan)
+            movie_id = data['results'][0]['id']
+            poster_path = data['results'][0].get('poster_path')
+            
+            # Jika ada poster, buat URL lengkapnya
+            if poster_path:
+                poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+                return poster_url
+        return None
+    except Exception as e:
+        # Jangan ganggu user dengan error API; return None saja
+        return None
 
 # Load data
 movies_data = load_movies_data()
@@ -249,14 +281,19 @@ elif page == "🎯 Recommendation":
                     st.info(f"📌 Filtering by genres: {', '.join(selected_genres_filter)}")
                 
                 # Tampilkan rekomendasi dalam grid
-                cols = st.columns(2)
-                for i, (_, row) in enumerate(recommendations.iterrows()):
-                    with cols[i % 2]:
-                        with st.container(border=True):
-                            st.markdown(f"**🎬 {row['title']}**")
-                            st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
-                            st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
-                            st.divider()
+                col_img, col_text = st.columns([1, 3])
+                with col_img:
+                    poster_url = fetch_movie_poster(row['title'])
+                    if poster_url:
+                        st.image(poster_url, use_container_width=True)
+                else:
+                        # Placeholder jika poster tidak ditemukan
+                        st.image("https://via.placeholder.com/200x300?text=No+Poster", use_container_width=True)
+        
+with col_text:
+    st.markdown(f"**🎬 {row['title']}**")
+    st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
+    st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
 
 # ==================== BROWSE BY GENRE PAGE ====================
 elif page == "🎭 Browse by Genre":
