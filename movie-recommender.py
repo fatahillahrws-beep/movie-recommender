@@ -40,6 +40,11 @@ def load_ratings_data():
     return df2.drop(['timestamp'], axis=1)
 
 @st.cache_data
+def load_ratings_data():
+    df2 = pd.read_csv("ratings.csv", sep=";")
+    return df2.drop(['timestamp'], axis=1)
+
+@st.cache_data
 def prepare_vectors(movies_data):
     vectorizer_title = TfidfVectorizer(ngram_range=(1,2))
     tfidf_title = vectorizer_title.fit_transform(movies_data['title'])
@@ -105,11 +110,11 @@ def recommendation_results(user_input, title_idx=0, genre_filter=None):
     movie_id = title_candidates.iloc[title_idx]['movieId']
     scores = scores_calculator(movie_id)
     results = scores.head(30).merge(movies_data, left_index=True, right_on='movieId')[['movieId', 'title', 'score', 'genres']]
-
+    
     # Filter berdasarkan genre
     if genre_filter and len(genre_filter) > 0:
         results = results[results['genres'].apply(lambda x: any(g in x for g in genre_filter))]
-
+    
     return results.head(10)
 
 # Fungsi untuk mendapatkan film berdasarkan genre
@@ -120,23 +125,23 @@ def get_movies_by_genre(genres, limit=20):
     return filtered.head(limit)
 
 # ==================== SIDEBAR ====================
-st.sidebar.title("Movie Recommender")
+st.sidebar.title("🎬 Movie Recommender")
 st.sidebar.markdown("---")
 page = st.sidebar.radio("Navigate to:", ["🏠 Home", "📊 Data Analysis", "🎯 Recommendation", "🎭 Browse by Genre"])
 
 # ==================== HOME PAGE ====================
-if page == "Home":
-    st.title("Movie Recommendation System")
+if page == "🏠 Home":
+    st.title("🎥 Movie Recommendation System")
     st.markdown("""
-    Welcome to the **Movie Recommendation System**!
+    Welcome to the **Movie Recommendation System**!  
     This app uses **Collaborative Filtering** and **Content-Based Filtering** to suggest movies you might like.
-
+    
     ### Features:
-    - **Data Analysis**: Explore movie genres, ratings distribution, and top movies.
-    - **Recommendation**: Get personalized movie recommendations based on your input.
-    - **Browse by Genre**: Filter and explore movies by genre.
+    - 📊 **Data Analysis**: Explore movie genres, ratings distribution, and top movies.
+    - 🎯 **Recommendation**: Get personalized movie recommendations based on your input.
+    - 🎭 **Browse by Genre**: Filter and explore movies by genre.
     """)
-
+    
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Total Movies", f"{len(movies_data):,}")
@@ -146,9 +151,9 @@ if page == "Home":
         st.metric("Unique Genres", f"{len(all_genres)}")
 
 # ==================== DATA ANALYSIS PAGE ====================
-elif page == "Data Analysis":
-    st.title("Movie Data Analysis")
-
+elif page == "📊 Data Analysis":
+    st.title("📊 Movie Data Analysis")
+    
     # Sidebar filter untuk analisis
     with st.sidebar:
         st.markdown("### 🔍 Filter Analysis")
@@ -157,19 +162,19 @@ elif page == "Data Analysis":
             options=all_genres,
             default=[]
         )
-
+    
     tab1, tab2, tab3 = st.tabs(["🎭 Genre Distribution", "⭐ Rating Distribution", "🏆 Top Movies"])
-
+    
     with tab1:
         st.subheader("Number of Movies per Genre")
-
+        
         # Data genre counts
         genre_counts = pd.Series([genre for genres_list in movies_data['genres'] for genre in genres_list]).value_counts()
-
+        
         # Filter jika ada genre yang dipilih
         if selected_analysis_genres:
             genre_counts = genre_counts[genre_counts.index.isin(selected_analysis_genres)]
-
+        
         fig, ax = plt.subplots(figsize=(12, 6))
         genre_counts.plot(kind='bar', color='skyblue', ax=ax)
         ax.set_title("Jumlah Film per Genre", fontsize=16)
@@ -177,7 +182,7 @@ elif page == "Data Analysis":
         ax.set_ylabel("Jumlah Film")
         plt.xticks(rotation=45, ha='right')
         st.pyplot(fig)
-
+    
     with tab2:
         st.subheader("Rating Distribution")
         fig, ax = plt.subplots(figsize=(8, 6))
@@ -186,7 +191,7 @@ elif page == "Data Analysis":
         ax.set_xlabel("Rating")
         ax.set_ylabel("Frekuensi")
         st.pyplot(fig)
-
+        
         # Statistik rating
         col1, col2, col3 = st.columns(3)
         with col1:
@@ -195,30 +200,30 @@ elif page == "Data Analysis":
             st.metric("Most Common Rating", f"{ratings_data['rating'].mode()[0]}")
         with col3:
             st.metric("Total Ratings", f"{len(ratings_data):,}")
-
+    
     with tab3:
         st.subheader("Top 10 Movies by Average Rating")
         avg_ratings = combined_data.groupby('title')['rating'].mean().sort_values(ascending=False).head(10)
         st.dataframe(avg_ratings.reset_index().rename(columns={'title': 'Movie', 'rating': 'Avg Rating'}), use_container_width=True)
-
+        
         st.subheader("Top 10 Most Rated Movies")
         most_rated = combined_data.groupby('title')['rating'].count().sort_values(ascending=False).head(10)
         st.dataframe(most_rated.reset_index().rename(columns={'title': 'Movie', 'rating': 'Rating Count'}), use_container_width=True)
 
 # ==================== RECOMMENDATION PAGE ====================
-elif page == "Recommendation":
-    st.title("Get Movie Recommendations")
-
+elif page == "🎯 Recommendation":
+    st.title("🎯 Get Movie Recommendations")
+    
     # Filter genre di sidebar
     with st.sidebar:
-        st.markdown("### Filter Recommendations")
+        st.markdown("### 🎭 Filter Recommendations")
         selected_genres_filter = st.multiselect(
             "Filter recommendations by genre:",
             options=all_genres,
             default=[],
             help="Select genres to filter recommended movies"
         )
-
+    
     col1, col2 = st.columns([3, 1])
     with col1:
         user_input = st.text_input("Enter a movie title:", "Jumanji")
@@ -226,42 +231,42 @@ elif page == "Recommendation":
         st.write("")
         st.write("")
         search_btn = st.button("🔍 Search", use_container_width=True)
-
+    
     if search_btn or user_input:
         st.subheader("🔎 Did you mean?")
         candidates = search_by_title(user_input)
         title_options = candidates['title'].tolist()
         selected_title = st.selectbox("Select the correct movie:", title_options)
-
-        if st.button("Get Recommendations", type="primary", use_container_width=True):
+        
+        if st.button("🎬 Get Recommendations", type="primary", use_container_width=True):
             idx = title_options.index(selected_title)
-
+            
             with st.spinner("Finding recommendations for you..."):
                 recommendations = recommendation_results(user_input, idx, selected_genres_filter)
-
+            
             if len(recommendations) == 0:
                 st.warning("No movies found with the selected genre filters. Try removing some filters.")
             else:
                 st.subheader("🎥 Recommended Movies for You")
-
+                
                 # Tampilkan filter yang aktif
                 if selected_genres_filter:
                     st.info(f"📌 Filtering by genres: {', '.join(selected_genres_filter)}")
-
+                
                 # Tampilkan rekomendasi dalam grid
                 cols = st.columns(2)
                 for i, (_, row) in enumerate(recommendations.iterrows()):
                     with cols[i % 2]:
                         with st.container(border=True):
-                            st.markdown(f"**{row['title']}**")
-                            st.caption(f"**Genres:** {', '.join(row['genres'])}")
-                            st.progress(min(row['score'] / 10, 1.0), text=f"Score: {row['score']:.2f}")
+                            st.markdown(f"**🎬 {row['title']}**")
+                            st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
+                            st.progress(min(row['score'] / 10, 1.0), text=f"⭐ Score: {row['score']:.2f}")
                             st.divider()
 
 # ==================== BROWSE BY GENRE PAGE ====================
-elif page == "Browse by Genre":
-    st.title("Browse Movies by Genre")
-
+elif page == "🎭 Browse by Genre":
+    st.title("🎭 Browse Movies by Genre")
+    
     # Multi-select untuk genre
     with st.sidebar:
         st.markdown("### 🎭 Genre Selection")
@@ -271,24 +276,24 @@ elif page == "Browse by Genre":
             default=["Comedy"] if "Comedy" in all_genres else [],
             help="Select genres to filter movies"
         )
-
+        
         st.markdown("### ⚙️ Display Options")
         num_movies = st.slider("Number of movies to show:", min_value=5, max_value=50, value=20)
         sort_by = st.selectbox("Sort by:", ["Rating (Highest)", "Rating (Lowest)", "Title (A-Z)", "Title (Z-A)"])
-
+    
     if browse_genres:
         st.subheader(f"📽️ Movies in: {', '.join(browse_genres)}")
-
+        
         # Filter movies by selected genres
         filtered_movies = movies_data.copy()
         for genre in browse_genres:
             filtered_movies = filtered_movies[filtered_movies['genres'].apply(lambda x: genre in x)]
-
+        
         # Tambahkan rating rata-rata
         avg_ratings = combined_data.groupby('movieId')['rating'].mean().reset_index()
         filtered_movies = filtered_movies.merge(avg_ratings, on='movieId', how='left')
         filtered_movies = filtered_movies.rename(columns={'rating': 'avg_rating'})
-
+        
         # Urutkan
         if sort_by == "Rating (Highest)":
             filtered_movies = filtered_movies.sort_values('avg_rating', ascending=False)
@@ -298,14 +303,14 @@ elif page == "Browse by Genre":
             filtered_movies = filtered_movies.sort_values('title', ascending=True)
         elif sort_by == "Title (Z-A)":
             filtered_movies = filtered_movies.sort_values('title', ascending=False)
-
+        
         filtered_movies = filtered_movies.head(num_movies)
-
+        
         if len(filtered_movies) == 0:
             st.warning("No movies found with the selected genres.")
         else:
             st.caption(f"Found {len(filtered_movies)} movies")
-
+            
             # Tampilkan dalam grid
             cols = st.columns(3)
             for i, (_, row) in enumerate(filtered_movies.iterrows()):
@@ -318,12 +323,12 @@ elif page == "Browse by Genre":
                         else:
                             st.caption("⭐ **Avg Rating:** No ratings yet")
     else:
-        st.info("Please select at least one genre from the sidebar to browse movies.")
-
+        st.info("👈 Please select at least one genre from the sidebar to browse movies.")
+        
         # Tampilkan genre populer
         st.subheader("🔥 Popular Genres")
         genre_counts = pd.Series([genre for genres_list in movies_data['genres'] for genre in genres_list]).value_counts().head(12)
-
+        
         cols = st.columns(4)
         for i, (genre, count) in enumerate(genre_counts.items()):
             with cols[i % 4]:
