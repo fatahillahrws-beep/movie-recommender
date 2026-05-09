@@ -122,7 +122,7 @@ def get_movies_by_genre(genres, limit=20):
 # ==================== SIDEBAR ====================
 st.sidebar.title("Movie Recommender")
 st.sidebar.markdown("---")
-page = st.sidebar.radio("Navigate to:", ["Home", "Data Analysis", "Recommendation", "Browse by Genre"])
+page = st.sidebar.radio("Navigate to:", ["🏠 Home", "📊 Data Analysis", "🎯 Recommendation", "🎭 Browse by Genre"])
 
 # ==================== HOME PAGE ====================
 if page == "Home":
@@ -158,7 +158,7 @@ elif page == "Data Analysis":
             default=[]
         )
 
-    tab1, tab2, tab3 = st.tabs(["Genre Distribution", "Rating Distribution", "Top Movies"])
+    tab1, tab2, tab3 = st.tabs(["🎭 Genre Distribution", "⭐ Rating Distribution", "🏆 Top Movies"])
 
     with tab1:
         st.subheader("Number of Movies per Genre")
@@ -228,7 +228,7 @@ elif page == "Recommendation":
         search_btn = st.button("🔍 Search", use_container_width=True)
 
     if search_btn or user_input:
-        st.subheader("Did you mean?")
+        st.subheader("🔎 Did you mean?")
         candidates = search_by_title(user_input)
         title_options = candidates['title'].tolist()
         selected_title = st.selectbox("Select the correct movie:", title_options)
@@ -242,11 +242,11 @@ elif page == "Recommendation":
             if len(recommendations) == 0:
                 st.warning("No movies found with the selected genre filters. Try removing some filters.")
             else:
-                st.subheader("Recommended Movies for You")
+                st.subheader("🎥 Recommended Movies for You")
 
                 # Tampilkan filter yang aktif
                 if selected_genres_filter:
-                    st.info(f"Filtering by genres: {', '.join(selected_genres_filter)}")
+                    st.info(f"📌 Filtering by genres: {', '.join(selected_genres_filter)}")
 
                 # Tampilkan rekomendasi dalam grid
                 cols = st.columns(2)
@@ -264,7 +264,7 @@ elif page == "Browse by Genre":
 
     # Multi-select untuk genre
     with st.sidebar:
-        st.markdown("### Genre Selection")
+        st.markdown("### 🎭 Genre Selection")
         browse_genres = st.multiselect(
             "Select one or more genres:",
             options=all_genres,
@@ -272,12 +272,12 @@ elif page == "Browse by Genre":
             help="Select genres to filter movies"
         )
 
-        st.markdown("### Display Options")
+        st.markdown("### ⚙️ Display Options")
         num_movies = st.slider("Number of movies to show:", min_value=5, max_value=50, value=20)
         sort_by = st.selectbox("Sort by:", ["Rating (Highest)", "Rating (Lowest)", "Title (A-Z)", "Title (Z-A)"])
 
     if browse_genres:
-        st.subheader(f"Movies in: {', '.join(browse_genres)}")
+        st.subheader(f"📽️ Movies in: {', '.join(browse_genres)}")
 
         # Filter movies by selected genres
         filtered_movies = movies_data.copy()
@@ -312,11 +312,11 @@ elif page == "Browse by Genre":
                 with cols[i % 3]:
                     with st.container(border=True):
                         st.markdown(f"**{row['title']}**")
-                        st.caption(f"**Genres:** {', '.join(row['genres'])}")
+                        st.caption(f"🏷️ **Genres:** {', '.join(row['genres'])}")
                         if pd.notna(row['avg_rating']):
-                            st.caption(f"**Avg Rating:** {row['avg_rating']:.2f}/5.0")
+                            st.caption(f"⭐ **Avg Rating:** {row['avg_rating']:.2f}/5.0")
                         else:
-                            st.caption("**Avg Rating:** No ratings yet")
+                            st.caption("⭐ **Avg Rating:** No ratings yet")
     else:
         st.info("Please select at least one genre from the sidebar to browse movies.")
 
